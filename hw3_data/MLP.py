@@ -19,11 +19,9 @@ class MLP(Module):
 
         self.hidden_dim1 = hidden_dim1
         self.hidden_dim2 = hidden_dim2
-        # self.hidden_dim3 = hidden_dim3
 
         self.fc1 = Linear(self.input_dim, self.hidden_dim1)
         self.fc2 = Linear(self.hidden_dim1, self.hidden_dim2)
-        # self.fc3 = Linear(self.hidden_dim2, self.hidden_dim3)
         self.output = Linear(self.hidden_dim2, output_dim)
 
         self.relu = ReLU()
@@ -34,28 +32,28 @@ class MLP(Module):
         out = self.relu(out)
         out = self.fc2(out)
         out = self.relu(out)
-        # out = self.fc3(out)
-        # out = self.relu(out)
         out = self.output(out)
         return out
 
+    def predict(self, x):
+        x = torch.FloatTensor(x)
+        out = self.forward(x).detach().numpy()
+        out = np.where(out == np.max(out), 1, 0)
+        return out 
 
 def test(net, X_train, y_train, X_test, y_test):
 
     test_out = np.argmax(net(torch.FloatTensor(X_test)).detach().numpy(), 1)
     train_out = np.argmax(net(torch.FloatTensor(X_train)).detach().numpy(), 1)
 
-    test_accuracy = np.sum(np.where(test_out == y_test, 1, 0))/y_test.shape[0]
-    train_accuracy = np.sum(np.where(train_out == y_train, 1, 0))/y_train.shape[0]
-
-    # print('Test: ', test_accuracy)
-    # print('Train: ', train_accuracy)
+    # test_accuracy = np.sum(np.where(test_out == y_test, 1, 0))/y_test.shape[0]
+    # train_accuracy = np.sum(np.where(train_out == y_train, 1, 0))/y_train.shape[0]
 
     acc1 = metrics.accuracy_score(y_pred=test_out, y_true=y_test)
     acc2 = metrics.accuracy_score(y_pred=train_out, y_true=y_train)
 
-    print('Test: ', acc1)
-    print('Train: ', acc2)
+    print('Train accuracy: ' + str(acc1))
+    print('Test accuracy: ' + str(acc1))
 
 def train(net, X_train, y_train, X_test, y_test, batch_size=10, epochs=200, lr=0.0005):
 
@@ -68,8 +66,6 @@ def train(net, X_train, y_train, X_test, y_test, batch_size=10, epochs=200, lr=0
     cost = {'loss': [], 'epoch': []}
     
     for i in range(epochs):
-
-        print(i)    
 
         batch_loss = 0
         randShuffle = torch.randperm(X_train.size()[0])
@@ -100,13 +96,10 @@ def train(net, X_train, y_train, X_test, y_test, batch_size=10, epochs=200, lr=0
         test(net, X_train, y_train, X_test, y_test)
         test(net, X_train_shuff, y_train_shuff, X_test, y_test)
 
-
     plt.plot(cost['epoch'], cost['loss'])
     plt.show()
 
     return net
-
-
 
 def main():
 

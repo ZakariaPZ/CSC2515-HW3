@@ -13,6 +13,7 @@ from collections import Counter
 from sklearn.model_selection import KFold
 from sklearn import metrics
 
+from plot_roc import plot_roc
 
 class KNearestNeighbor(object):
     '''
@@ -42,6 +43,7 @@ class KNearestNeighbor(object):
         dist = self.train_norm + test_norm - 2*self.train_data.dot(test_point.transpose())
         return np.squeeze(dist)
 
+
     def query_knn(self, test_point, k):
         '''
         Query a single test point using the k-NN algorithm
@@ -54,18 +56,7 @@ class KNearestNeighbor(object):
         digits = self.train_labels[k_max_inds]
         votes = Counter(digits).most_common(2)
 
-        # votes = None
-        # maxDig = 11
-        # for element, digit in zip(list(Counter([3, 7, 3, 7, 2, 2, 4, 6, 6]).values()), list(Counter([3, 7, 3, 7, 2, 2, 4, 6, 6]).keys())):
-        #     if element == max(list(Counter([3, 1, 3, 1, 2, 2, 4]).values())) and digit < maxDig:
-        #         votes = element 
-        #         maxDig = digit 
-
-        # votes = np.argmax(np.bincount(digits.astype('int64')))
-
         if k > 1 and len(votes) > 1:
-
-            # print(votes[0][1], votes[1][1])
 
             # if k becomes 1, len(votes) == 1 - no need to check for k == 1
             while (len(votes) > 1 and votes[0][1] == votes[1][1]):
@@ -73,9 +64,14 @@ class KNearestNeighbor(object):
                 k_max_inds = inds[:k]
                 digits = self.train_labels[k_max_inds]
                 votes = Counter(digits).most_common(2)
+        
+        probs = np.zeros((10,), dtype=object)
+        for el in votes:
+            probs[int(el[0])] = el[1]
+        
+        probs = probs/np.sum(probs)
 
-        return votes[0][0]
-        # return votes
+        return votes[0][0], probs
 
 def cross_validation(train_data, train_labels, k_range=np.arange(1,16)):
     '''
@@ -124,49 +120,49 @@ def classification_accuracy(knn, k, eval_data, eval_labels):
     N = eval_data.shape[0]
 
     y_pred = []
+    y_probs = []
     # Loop through all test points
     for test_point, test_label in zip(eval_data, eval_labels):
-        pred = knn.query_knn(test_point, k)
+        pred, prob = knn.query_knn(test_point, k)
 
         y_pred.append(pred)
+        y_probs.append(prob)
 
-        # Accumulate loss
-        if pred == test_label:
-            hit_rate += 1
     
     y_pred = np.array(y_pred)
+    y_probs = np.array(y_probs)
     acc = metrics.accuracy_score(y_pred=y_pred, y_true=eval_labels)
 
-    # return hit_rate/N
-    return acc, y_pred
+    return acc, y_pred, y_probs
+       
 
 def main():
     train_data, train_labels, test_data, test_labels = data.load_all_data('data')
     knn = KNearestNeighbor(train_data, train_labels)
 
     # # 4.1 a)
-    # train_err_k1 = classification_accuracy(knn, 1, train_data, train_labels)[0]
-    # test_err_k1 = classification_accuracy(knn, 1, test_data, test_labels)[0]
+    train_err_k1 = classification_accuracy(knn, 1, train_data, train_labels)[0]
+    test_err_k1 = classification_accuracy(knn, 1, test_data, test_labels)[0]
 
-    # # 4.1 b)
-    # train_err_k15 = classification_accuracy(knn, 15, train_data, train_labels)[0]
-    # test_err_k15 = classification_accuracy(knn, 15, test_data, test_labels)[0]
+    # 4.1 b)
+    train_err_k15 = classification_accuracy(knn, 15, train_data, train_labels)[0]
+    test_err_k15 = classification_accuracy(knn, 15, test_data, test_labels)[0]
 
-    # print('K=1 - train accuracy: ' + str(train_err_k1) + ', test accuracy: ' + str(test_err_k1))
-    # print('K=15 - train accuracy: ' + str(train_err_k15) + ', test accuracy: ' + str(test_err_k15))
+    print('K=1 - train accuracy: ' + str(train_err_k1) + ', test accuracy: ' + str(test_err_k1))
+    print('K=15 - train accuracy: ' + str(train_err_k15) + ', test accuracy: ' + str(test_err_k15))
 
     # 4.2 - Implemented 
-    4.3 
+    # 4.3 
     # optK = cross_validation(train_data, train_labels)
     optK = 3
-    test_acc, preds = classification_accuracy(knn, optK, test_data, test_labels)
+    test_acc, preds, probs = classification_accuracy(knn, optK, test_data, test_labels)
 
     print('The optimal k is {}'.format(optK) + '.')
     print('Test accuracy: ' + str(test_acc))
     print('Confusion matrix: ' + str(metrics.confusion_matrix(test_labels, preds)))
-    print('Precision: ' + str(metrics.precision_score(test_labels, preds)))
-    print('Recall: ' + str(metrics.recall_score(test_labels, preds)))
-    
+    print('Precision: ' + str(metrics.precision_score(test_labels, preds, average='macro')))
+    print('Recall: ' + str(metrics.recall_score(test_labels, preds, average='macro')))
+    plot_roc(test_labels, probs, 'KNN')
 
 if __name__ == '__main__':
     main()
